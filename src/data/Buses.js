@@ -112,7 +112,7 @@ exports.Buses = [
         departureTime: 10000,
         seatAvailable: [2, 20, 22, 24, 26],
         price: 22000,
-      }
+      },
     ],
     routes: [
       {
