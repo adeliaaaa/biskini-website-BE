@@ -22,6 +22,7 @@ module.exports = {
     ecmaVersion: 'latest',
   },
   rules: {
+    'no-plusplus': 0,
     'no-await-in-loop': 0,
     'no-console': 0,
     'no-underscore-dangle': 0,

@@ -182,13 +182,26 @@ exports.getBuses = async (req, res, next) => {
 exports.getBusById = async (req, res, next) => {
   try {
     const { busId } = req.params;
-    const bus = Buses.find((b) => b.id === busId);
+    const { reversed } = req.query;
+    const bus = { ...Buses.find((b) => b.id === busId) };
 
     if (bus === undefined) {
       res.status(204);
       res.json({});
 
       return next();
+    }
+
+    if (reversed) {
+      const { origin, destination } = bus;
+      bus.origin = destination;
+      bus.destination = origin;
+
+      bus.routes = bus.routes.reverse();
+    }
+
+    for (let i = 0; i < bus.routes.length; i++) {
+      bus.routes[i].arrivalTime = bus.schedules[0].departureTime + i * bus.durationBetween;
     }
 
     res.status(200);

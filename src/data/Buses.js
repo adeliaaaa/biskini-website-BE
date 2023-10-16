@@ -4,8 +4,8 @@ exports.Buses = [
     name: 'TMB K1',
     origin: 'Cibiru',
     destination: 'Cicaheum',
-    minPrice: '14000',
-    maxPrice: '22000',
+    minPrice: 14000,
+    maxPrice: 22000,
     durationBetween: 10,
     schedules: [
       {
