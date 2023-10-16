@@ -35,6 +35,7 @@ npm run start
 * Informasi Bus 
 * Informasi Rute 
 * Live
+* Bantuan
 * Login Admin 
 * Manajemen Agensi Admin 
 * Manajemen Bus Admin 
