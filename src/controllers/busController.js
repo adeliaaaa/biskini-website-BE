@@ -219,24 +219,14 @@ exports.postBus = async (req, res, next) => {
       id,
       agencyId,
       name,
-      origin,
-      destination,
-      durationBetween,
-      schedules,
-      routes,
     } = req.body;
     if (
       id === undefined
       || agencyId === undefined
       || name === undefined
-      || origin === undefined
-      || destination === undefined
-      || durationBetween === undefined
-      || schedules === undefined
-      || routes === undefined
     ) {
       res.status(400);
-      res.send('Bus ID, Agency ID, Name, Origin, Destination, Duration Between, Schedules, and Routes must be filled');
+      res.send('Bus ID, Agency ID, and Name must be filled');
 
       return next();
     }
@@ -260,6 +250,39 @@ exports.postBus = async (req, res, next) => {
     }
 
     Agencies[agencyIdx].buses.push({ id });
+
+    const origin = 'Cibiru';
+    const destination = 'Cicaheum';
+    const durationBetween = 10;
+    const schedules = [
+      {
+        departureTime: 510,
+        seatAvailable: [3, 19, 21, 23, 25, 27, 29],
+        price: 14000,
+      },
+      {
+        departureTime: 600,
+        seatAvailable: [2, 13, 16, 18, 24, 26],
+        price: 16000,
+      },
+    ];
+    const routes = [
+      {
+        location: 'Mall Festival Citylink, Jalan Peta, Suka Asih, Bandung City, West Java',
+        name: 'Mall Festival Citylink',
+        stopover: true,
+      },
+      {
+        location: 'Bandung Train Station, Jalan Kebon Kawung, Babakan Ciamis, Bandung City, West Java',
+        name: 'Bandung Train Station',
+        stopover: true,
+      },
+      {
+        location: 'Alun-Alun Bandung, Jalan Asia Afrika, Braga, Bandung City, West Java',
+        name: 'Alun-Alun Bandung',
+        stopover: true,
+      },
+    ];
 
     Buses.push({
       id,
@@ -287,23 +310,15 @@ exports.updateBusById = async (req, res, next) => {
     const { busId } = req.params;
     const {
       name,
-      origin,
-      destination,
-      durationBetween,
-      schedules,
-      routes,
+      agencyId,
     } = req.body;
     if (
       busId === undefined
       || name === undefined
-      || origin === undefined
-      || destination === undefined
-      || durationBetween === undefined
-      || schedules === undefined
-      || routes === undefined
+      || agencyId === undefined
     ) {
       res.status(400);
-      res.send('Bus ID, Name, Origin, Destination, Duration Between, Schedules, and Routes must be filled');
+      res.send('Bus ID, Agency ID, and Name must be filled');
 
       return next();
     }
@@ -317,14 +332,17 @@ exports.updateBusById = async (req, res, next) => {
       return next();
     }
 
+    const agencyIdx = Agencies.findIndex((a) => a.id === agencyId);
+
+    if (agencyIdx === -1) {
+      res.status(400);
+      res.send('Agency not found');
+
+      return next();
+    }
+
     Buses[busIdx].name = name;
-    Buses[busIdx].origin = origin;
-    Buses[busIdx].destination = destination;
-    Buses[busIdx].minPrice = Math.min(...schedules.map((schedule) => schedule.price));
-    Buses[busIdx].maxPrice = Math.max(...schedules.map((schedule) => schedule.price));
-    Buses[busIdx].durationBetween = durationBetween;
-    Buses[busIdx].schedules = schedules;
-    Buses[busIdx].routes = routes;
+    Buses[busIdx].agencyId = agencyId;
 
     res.status(200);
     res.send('Bus successfully updated');
@@ -369,8 +387,7 @@ exports.deleteBusById = async (req, res, next) => {
   }
 };
 
-// Bus Schedule and Booking
-
+// Bus Booking
 // Stop Overs CRUD
 exports.getStopOvers = async (req, res, next) => {
   try {
@@ -394,6 +411,205 @@ exports.getStopOvers = async (req, res, next) => {
 
     res.status(200);
     res.json(stopOvers);
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getBusBooks = async (req, res, next) => {
+  try {
+    const {
+      origin,
+      destination,
+    } = req.query;
+
+    const buses = [...Buses.filter((b) => (
+      b.routes.findIndex((route) => route.name === origin) !== -1
+      && b.routes.findIndex((route) => route.name === destination) !== -1
+    ))];
+
+    buses.forEach((bus) => {
+      const originIdx = bus.routes.findIndex((route) => route.name === origin);
+      const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
+      /* eslint-disable no-param-reassign */
+      if (originIdx > destinationIdx) {
+        bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
+
+        // eslint-disable-next-line max-len
+        bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+
+        const temp = bus.origin;
+        bus.origin = bus.destination;
+        bus.destination = temp;
+        bus.routes = bus.routes.reverse();
+      } else {
+        // eslint-disable-next-line max-len
+        bus.schedules.forEach((schedule) => schedule.departureTime + originIdx * bus.durationBetween);
+        bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
+      }
+      /* eslint-enable no-param-reassign */
+    });
+
+    res.status(200);
+    res.json(buses.map((bus) => ({
+      id: bus.id,
+      name: bus.name,
+      origin: bus.origin,
+      destination: bus.destination,
+      departureTime: bus.schedules[0].departureTime,
+    })));
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getBusBookById = async (req, res, next) => {
+  try {
+    const { busId } = req.params;
+    const {
+      origin,
+      destination,
+    } = req.query;
+
+    const bus = { ...Buses.find((b) => b.id === busId) };
+
+    const originIdx = bus.routes.findIndex((route) => route.name === origin);
+    const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
+
+    /* eslint-disable no-param-reassign */
+    if (originIdx > destinationIdx) {
+      bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
+
+      // eslint-disable-next-line max-len
+      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+      bus.routes.forEach((route) => route.arrivalTime + destinationIdx * bus.durationBetween);
+
+      const temp = bus.origin;
+      bus.origin = bus.destination;
+      bus.destination = temp;
+      bus.routes = bus.routes.reverse();
+    } else {
+      // eslint-disable-next-line max-len
+      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+      bus.routes.forEach((route) => route.arrivalTime + originIdx * bus.durationBetween);
+      bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
+    }
+
+    const duration = bus.routes[bus.routes.length - 1].arrivalTime - bus.routes[0].arrivalTime;
+
+    res.status(200);
+    res.json({
+      id: bus.id,
+      name: bus.name,
+      origin: bus.origin,
+      destination: bus.destination,
+      duration,
+      minPrice: bus.minPrice,
+      maxPrice: bus.maxPrice,
+      scheduleTimes: bus.schedules.map((schedule) => schedule.departureTime),
+    });
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getBusBookSchedules = async (req, res, next) => {
+  try {
+    const { busId } = req.params;
+    const {
+      origin,
+      destination,
+      numOfPeople,
+    } = req.query;
+
+    const bus = { ...Buses.find((b) => b.id === busId) };
+    bus.schedules = bus.schedules.filter((s) => s.seatAvailable.length < numOfPeople);
+
+    const originIdx = bus.routes.findIndex((route) => route.name === origin);
+    const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
+
+    /* eslint-disable no-param-reassign */
+    if (originIdx > destinationIdx) {
+      bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
+
+      // eslint-disable-next-line max-len
+      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+      bus.routes.forEach((route) => route.arrivalTime + destinationIdx * bus.durationBetween);
+
+      const temp = bus.origin;
+      bus.origin = bus.destination;
+      bus.destination = temp;
+      bus.routes = bus.routes.reverse();
+    } else {
+      // eslint-disable-next-line max-len
+      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+      bus.routes.forEach((route) => route.arrivalTime + originIdx * bus.durationBetween);
+      bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
+    }
+
+    const duration = bus.routes[bus.routes.length - 1].arrivalTime - bus.routes[0].arrivalTime;
+
+    res.status(200);
+    res.json({
+      id: bus.id,
+      name: bus.name,
+      origin: bus.origin,
+      destination: bus.destination,
+      schedules: bus.schedules.map((schedule) => ({
+        departureTime: schedule.departureTime,
+        arrivalTime: schedule.arrivalTime + duration,
+        price: schedule.price,
+        seatAvailable: schedule.seatAvailable.length,
+      })),
+    });
+
+    return next();
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getBusBookAvailableSeat = async (req, res, next) => {
+  try {
+    const { busId } = req.params;
+    const {
+      origin,
+      destination,
+      departureTime,
+      numOfPeople,
+    } = req.query;
+
+    const bus = { ...Buses.find((b) => b.id === busId) };
+
+    const originIdx = bus.routes.findIndex((route) => route.name === origin);
+    const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
+
+    let scheduleIdx = -1;
+
+    /* eslint-disable no-param-reassign */
+    if (originIdx > destinationIdx) {
+      bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
+
+      // eslint-disable-next-line max-len
+      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+      scheduleIdx = bus.schedules.findIndex((schedule) => schedule.departureTime === departureTime);
+    } else {
+      // eslint-disable-next-line max-len
+      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+      scheduleIdx = bus.schedules.findIndex((schedule) => schedule.departureTime === departureTime);
+    }
+
+    res.status(200);
+    res.json({
+      price: bus.schedules[scheduleIdx].price * numOfPeople,
+      seatAvailable: bus.schedules[scheduleIdx].seatAvailable,
+    });
 
     return next();
   } catch (err) {

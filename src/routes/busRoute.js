@@ -48,8 +48,24 @@ router.delete(
 );
 
 router.get(
-  '/stopovers/:stopOver?',
+  '/books/stopovers/:stopOver?',
   busController.getStopOvers,
+);
+router.get(
+  '/books/buses',
+  busController.getBusBooks,
+);
+router.get(
+  '/books/buses/availableseat/:busId',
+  busController.getBusBookAvailableSeat,
+);
+router.get(
+  '/books/buses/schedule/:busId',
+  busController.getBusBookSchedules,
+);
+router.get(
+  '/books/buses/:busId',
+  busController.getBusBookById,
 );
 
 module.exports = router;
