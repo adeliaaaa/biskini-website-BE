@@ -292,6 +292,7 @@ exports.postBus = async (req, res, next) => {
       name,
       origin,
       destination,
+      agencyId,
       minPrice: Math.min(...schedules.map((schedule) => schedule.price)),
       maxPrice: Math.max(...schedules.map((schedule) => schedule.price)),
       durationBetween,
