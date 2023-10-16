@@ -394,7 +394,6 @@ exports.getStopOvers = async (req, res, next) => {
     const { stopOver } = req.params;
     let stopOvers = [...new Set(Buses.map((bus) => {
       if (stopOver) {
-        console.log('INI');
         const idx = bus.routes.findIndex((r) => r.name === stopOver);
 
         if (idx === -1) {
@@ -424,6 +423,15 @@ exports.getBusBooks = async (req, res, next) => {
       origin,
       destination,
     } = req.query;
+    if (
+      origin === undefined
+      || destination === undefined
+    ) {
+      res.status(400);
+      res.send('Origin and Destination must be filled');
+
+      return next();
+    }
 
     const buses = [...Buses.filter((b) => (
       b.routes.findIndex((route) => route.name === origin) !== -1
@@ -438,7 +446,9 @@ exports.getBusBooks = async (req, res, next) => {
         bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
 
         // eslint-disable-next-line max-len
-        bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
+        bus.schedules.forEach((schedule) => {
+          schedule.departureTime += destinationIdx * bus.durationBetween;
+        });
 
         const temp = bus.origin;
         bus.origin = bus.destination;
@@ -446,7 +456,9 @@ exports.getBusBooks = async (req, res, next) => {
         bus.routes = bus.routes.reverse();
       } else {
         // eslint-disable-next-line max-len
-        bus.schedules.forEach((schedule) => schedule.departureTime + originIdx * bus.durationBetween);
+        bus.schedules.forEach((schedule) => {
+          schedule.departureTime += originIdx * bus.durationBetween;
+        });
         bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
       }
       /* eslint-enable no-param-reassign */
@@ -455,6 +467,7 @@ exports.getBusBooks = async (req, res, next) => {
     res.status(200);
     res.json(buses.map((bus) => ({
       id: bus.id,
+      agencyId: bus.agencyId,
       name: bus.name,
       origin: bus.origin,
       destination: bus.destination,
@@ -474,8 +487,20 @@ exports.getBusBookById = async (req, res, next) => {
       origin,
       destination,
     } = req.query;
+    if (
+      busId === undefined
+      || origin === undefined
+      || destination === undefined
+    ) {
+      res.status(400);
+      res.send('Bus ID, Origin, and Destination must be filled');
+
+      return next();
+    }
 
     const bus = { ...Buses.find((b) => b.id === busId) };
+
+    console.log(bus.routes);
 
     const originIdx = bus.routes.findIndex((route) => route.name === origin);
     const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
@@ -484,9 +509,12 @@ exports.getBusBookById = async (req, res, next) => {
     if (originIdx > destinationIdx) {
       bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
 
-      // eslint-disable-next-line max-len
-      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
-      bus.routes.forEach((route) => route.arrivalTime + destinationIdx * bus.durationBetween);
+      bus.schedules.forEach((schedule) => {
+        schedule.departureTime += destinationIdx * bus.durationBetween;
+      });
+      bus.routes.forEach((route) => {
+        route.arrivalTime = bus.schedules[0].departureTime + originIdx * bus.durationBetween;
+      });
 
       const temp = bus.origin;
       bus.origin = bus.destination;
@@ -494,10 +522,16 @@ exports.getBusBookById = async (req, res, next) => {
       bus.routes = bus.routes.reverse();
     } else {
       // eslint-disable-next-line max-len
-      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
-      bus.routes.forEach((route) => route.arrivalTime + originIdx * bus.durationBetween);
+      bus.schedules.forEach((schedule) => {
+        schedule.departureTime += originIdx * bus.durationBetween;
+      });
+      bus.routes.forEach((route) => {
+        route.arrivalTime = bus.schedules[0].departureTime + originIdx * bus.durationBetween;
+      });
       bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
     }
+
+    console.log(bus);
 
     const duration = bus.routes[bus.routes.length - 1].arrivalTime - bus.routes[0].arrivalTime;
 
@@ -511,6 +545,7 @@ exports.getBusBookById = async (req, res, next) => {
       minPrice: bus.minPrice,
       maxPrice: bus.maxPrice,
       scheduleTimes: bus.schedules.map((schedule) => schedule.departureTime),
+      routes: bus.routes,
     });
 
     return next();
@@ -529,7 +564,7 @@ exports.getBusBookSchedules = async (req, res, next) => {
     } = req.query;
 
     const bus = { ...Buses.find((b) => b.id === busId) };
-    bus.schedules = bus.schedules.filter((s) => s.seatAvailable.length < numOfPeople);
+    bus.schedules = bus.schedules.filter((s) => s.seatAvailable.length > numOfPeople);
 
     const originIdx = bus.routes.findIndex((route) => route.name === origin);
     const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
@@ -539,8 +574,15 @@ exports.getBusBookSchedules = async (req, res, next) => {
       bus.routes = bus.routes.slice(destinationIdx, originIdx + 1);
 
       // eslint-disable-next-line max-len
-      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
-      bus.routes.forEach((route) => route.arrivalTime + destinationIdx * bus.durationBetween);
+      bus.schedules.forEach((schedule) => {
+        schedule.departureTime += destinationIdx * bus.durationBetween;
+      });
+
+      if (bus.schedules.length !== 0) {
+        bus.routes.forEach((route) => {
+          route.arrivalTime = bus.schedules[0].departureTime + destinationIdx * bus.durationBetween;
+        });
+      }
 
       const temp = bus.origin;
       bus.origin = bus.destination;
@@ -548,8 +590,14 @@ exports.getBusBookSchedules = async (req, res, next) => {
       bus.routes = bus.routes.reverse();
     } else {
       // eslint-disable-next-line max-len
-      bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
-      bus.routes.forEach((route) => route.arrivalTime + originIdx * bus.durationBetween);
+      bus.schedules.forEach((schedule) => {
+        schedule.departureTime += originIdx * bus.durationBetween;
+      });
+      if (bus.schedules.length !== 0) {
+        bus.routes.forEach((route) => {
+          route.arrivalTime = bus.schedules[0].departureTime + originIdx * bus.durationBetween;
+        });
+      }
       bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
     }
 
@@ -563,10 +611,11 @@ exports.getBusBookSchedules = async (req, res, next) => {
       destination: bus.destination,
       schedules: bus.schedules.map((schedule) => ({
         departureTime: schedule.departureTime,
-        arrivalTime: schedule.arrivalTime + duration,
+        arrivalTime: schedule.departureTime + duration,
         price: schedule.price,
         seatAvailable: schedule.seatAvailable.length,
       })),
+      routes: bus.routes,
     });
 
     return next();
