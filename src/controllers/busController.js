@@ -500,8 +500,6 @@ exports.getBusBookById = async (req, res, next) => {
 
     const bus = { ...Buses.find((b) => b.id === busId) };
 
-    console.log(bus.routes);
-
     const originIdx = bus.routes.findIndex((route) => route.name === origin);
     const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
 
@@ -530,8 +528,6 @@ exports.getBusBookById = async (req, res, next) => {
       });
       bus.routes = bus.routes.slice(originIdx, destinationIdx + 1);
     }
-
-    console.log(bus);
 
     const duration = bus.routes[bus.routes.length - 1].arrivalTime - bus.routes[0].arrivalTime;
 
@@ -639,7 +635,7 @@ exports.getBusBookAvailableSeat = async (req, res, next) => {
     const originIdx = bus.routes.findIndex((route) => route.name === origin);
     const destinationIdx = bus.routes.findIndex((route) => route.name === destination);
 
-    let scheduleIdx = -1;
+    let scheduleIdx = 0;
 
     /* eslint-disable no-param-reassign */
     if (originIdx > destinationIdx) {
@@ -647,16 +643,20 @@ exports.getBusBookAvailableSeat = async (req, res, next) => {
 
       // eslint-disable-next-line max-len
       bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
-      scheduleIdx = bus.schedules.findIndex((schedule) => schedule.departureTime === departureTime);
+      // eslint-disable-next-line max-len
+      scheduleIdx = bus.schedules.findIndex((schedule) => parseInt(schedule.departureTime, 10) === parseInt(departureTime, 10));
     } else {
       // eslint-disable-next-line max-len
       bus.schedules.forEach((schedule) => schedule.departureTime + destinationIdx * bus.durationBetween);
-      scheduleIdx = bus.schedules.findIndex((schedule) => schedule.departureTime === departureTime);
+      // eslint-disable-next-line max-len
+      scheduleIdx = bus.schedules.findIndex((schedule) => parseInt(schedule.departureTime, 10) === parseInt(departureTime, 10));
     }
 
     res.status(200);
     res.json({
-      price: bus.schedules[scheduleIdx].price * numOfPeople,
+      ...bus,
+      departureTime: bus.schedules[scheduleIdx].departureTime,
+      totalPrice: bus.schedules[scheduleIdx].price * numOfPeople,
       seatAvailable: bus.schedules[scheduleIdx].seatAvailable,
     });
 
