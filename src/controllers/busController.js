@@ -100,7 +100,7 @@ exports.postAgency = async (req, res, next) => {
 exports.updateAgencyById = async (req, res, next) => {
   try {
     const { agencyId } = req.params;
-    const { name } = req.body;
+    const { id, name } = req.body;
     if (agencyId === undefined || name === undefined) {
       res.status(400);
       res.send('Agency ID and Name must be filled');
@@ -117,7 +117,10 @@ exports.updateAgencyById = async (req, res, next) => {
       return next();
     }
 
-    Agencies[agencyIdx].name = name;
+    const tempAgency = { ...Agencies[agencyIdx] };
+    tempAgency.id = id;
+    tempAgency.name = name;
+    Agencies[agencyIdx] = tempAgency;
 
     res.status(200);
     res.send('Agency successfully updated');
